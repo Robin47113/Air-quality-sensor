@@ -28,8 +28,8 @@
 #define MICS_I2C_ADDRESS MICS_ADDRESS_0
 DFRobot_MICS_I2C mics(&Wire, MICS_I2C_ADDRESS);
 
-WiFiClient wlanClient;
-PubSubClient client(wlanClient);
+WiFiClient wifiClient;
+PubSubClient client(wifiClient);
 IPAddress server(192, 168, 178, 85); //mqtt server
 
 HM330X sensor;
@@ -90,12 +90,67 @@ HM330XErrorCode parse_result_value(uint8_t *data) {
     return NO_ERROR;
 }
 
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("AirQuality")) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("outTopic","hello world");
+      sendConfig();
+      sendConfig();
+      sendConfig();
+
+      sendConfig();
+      sendConfig();
+      sendConfig();
+      sendConfig();
+      sendConfig();
+      sendConfig();
+
+      sendStatus();
+      // ... and resubscribe
+      //client.subscribe("inTopic");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
+//µg/m³
+
+//carbon_monoxide
+//nitrogen_dioxide
+// Ammonia
+// Hydrogen
+// Ethanol
+// Methane
+
+//pm1
+//pm10
+//pm25
+
+void sendStatus(){
+
+}
+
+void sendConfig(){
+
+}
+
 
 
 void setup() {
   Serial.begin(115200);
-
+  
   WiFiManager wifiManager;
+  
   wifiManager.autoConnect("AutoConnectAP");
   Serial.println("Wifi connected");
 
@@ -132,27 +187,6 @@ void setup() {
   }
 }
 
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect("AirQuality")) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      client.publish("outTopic","hello world");
-
-      // ... and resubscribe
-      //client.subscribe("inTopic");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
-  }
-}
 
 void loop() {
   if (!client.connected()) {
@@ -161,10 +195,6 @@ void loop() {
   //client.loop();
 
     /**
-   * Gas type:
-   * MICS-4514 You can get all gas concentration
-   * MICS-5524 You can get the concentration of CH4, C2H5OH, H2, NH3, CO
-   * MICS-2714 You can get the concentration of NO2
    *   CO       = 0x01  (Carbon Monoxide)  (1    - 1000)PPM
    *   CH4      = 0x02  (Methane)          (1000 - 25000)PPM
    *   C2H5OH   = 0x03  (Ethanol)          (10   - 500)PPM
