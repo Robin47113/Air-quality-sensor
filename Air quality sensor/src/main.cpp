@@ -8,7 +8,7 @@
 //particle sensor
 #include <Seeed_HM330X.h>
 //Gas Sensor
-#include <DFRobot_MICS-master/DFRobot_MICS.h>
+#include <DFRobot_MICS.h>
 //json
 #include <ArduinoJson.h>
 //MQtt
@@ -172,7 +172,7 @@ void loop() {
    *   NH3      = 0x08  (Ammonia)          (1    - 500)PPM
    *   NO2      = 0x0A  (Nitrogen Dioxide) (0.1  - 10)PPM
    */
-  float gasdata = mics.getGasData(C2H5OH);
+  float gasdata = mics.getGasData(CO);
   Serial.print(gasdata,1);
   Serial.println(" PPM");
   //mics.sleepMode();
