@@ -1,12 +1,12 @@
 # Air-quality-sensor
 
-##1 Voraussetzung
+## 1 Voraussetzung
 
 Ein Server auf dem eine Homeassistant Instanz l"auft und eine Mqtt Integration installiert und eingerichtet wurde.
 
-##2 Software
+## 2 Software
 
-###Flashen mit VSCode und der PlatformIO Erweiterung
+### Flashen mit VSCode und der PlatformIO Erweiterung
 
 1. Clone das Github Repository.
 2.  ̈Offne das Repository als Projekt.
@@ -21,7 +21,7 @@ man sein WLAN Netzwerk und WLAN Passwort eingeben kann
 8. Danach werden automatisch alle 5 Minuten neue Werte an den Ho-
 meassistant gesendet und dort angezeigt.
 
-###Flaschen mit der Arduino IDE
+### Flaschen mit der Arduino IDE
 
 1. Downloade die main.cpp Datei aus dem src Ordner des Github Re-
 positorys.
@@ -29,9 +29,9 @@ positorys.
 noJson und PubSubClient.
 3. weiter bei Punkt drei von 2.1
 
-##Hardware
+## Hardware
 
-###Stromversorgung
+### Stromversorgung
 
 1. Die vier Akkus m ̈ussen in paralleler Schaltung zusammen gel ̈otet
 werden und dann mit dem Batterie Stecker des Solarmoduls ver-
@@ -46,7 +46,7 @@ angeschlossen werden.
 das Modul zu starten.
 6. Dann ist der USB-Stromausgang aktiv
 
-###Sensor
+### Sensor
 
 Der Sensor und der Mikrocontroller k ̈onnen beide auf dem 3D-druckbaren
 Halter befestigt werden (sensormount.stl).
@@ -55,7 +55,7 @@ wie auf dem Diagramm zu sehen, mit den Sensor verbunden wurden, kann
 der Mikrocontroller per USB mit Strom versorgt werden.
 
 
-###Gesamtsystem
+### Gesamtsystem
 
 Danach kann alles auf der Unterseite der Solarzelle befestigt werden und
 das Paneel in der N ̈ahe von einer Straße und WLAN platziert werden.
