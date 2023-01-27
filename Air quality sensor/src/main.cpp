@@ -89,7 +89,6 @@ HM330XErrorCode parse_result(uint8_t *data) {
   Sends the 3 sensor values as a json via mqtt
 */
 void sendStatus(){
-  updateValues();
   StaticJsonDocument<128> JSONencoder;
   Serial.println("Sending Status");
   JSONencoder["pm1"] = (int)pm1,
@@ -206,7 +205,7 @@ void reconnect() {
       send2Config();
       send10Config();
 
-      sendStatus();
+      //sendStatus();
       // ... and resubscribe
       //client.subscribe("inTopic");
     } else {
@@ -249,7 +248,7 @@ void setup() {
   Serial1.println("Start device in normal mode!");
 
   pinMode(D6,OUTPUT);
-  digitalWrite(D6,HIGH);
+  digitalWrite(D6,LOW);
 
   //mqtt config
   client.setServer(server, 1883);
@@ -268,19 +267,50 @@ void setup() {
 
 
 void loop() {
-  //sensorInit();
 
-  //connect to WIFI
-  //wifiManager.autoConnect("AutoConnectAP");
-  //Serial.println("Wifi connected");
+    Serial.println("Enter light sleep mode");
+ 
+      uint32_t sleep_time_in_ms = 0xFFFFFFE;
+      wifi_set_opmode(NULL_MODE);
+      wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
+      wifi_fpm_open();
+      wifi_fpm_set_wakeup_cb(callback);
+      wifi_fpm_do_sleep(sleep_time_in_ms *1000 );
+      delay(sleep_time_in_ms + 1);
+ 
+      Serial.println("Exit light sleep mode");
+      //current time in millis
+      int mil = millis();
+      //start sensor
+      sensorInit();
+      //connect to wifi
+      wifiManager.autoConnect("AutoConnectAP");
+      Serial.println("Wifi connected");
+      //connect to mqtt server
+      if (!client.connected()) {
+        reconnect();
+      }
+      //wait until timer is at 30s
+      while(mil+30000<millis()){
 
+      }
+      //read values from sensor
+      updateValues();
+      //put sensor in sleepmode
+      digitalWrite(D6,HIGH);
+      //send values to server
+      sendStatus();
+       
+      wifi_set_sleep_type(NONE_SLEEP_T);
+
+
+//Code for sending values w/o sleep
+/*
   if (!client.connected()) {
    reconnect();
   }else{
     sendStatus();
   }
   client.loop();
-
-  //delay(10000);
-  //hier Light sleep
+*/
 }
