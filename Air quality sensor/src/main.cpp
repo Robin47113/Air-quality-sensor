@@ -7,33 +7,40 @@
 #include <WiFiManager.h>
 //particle sensor
 #include <Seeed_HM330X.h>
-//Gas Sensor
-#include <DFRobot_MICS.h>
 //json
 #include <ArduinoJson.h>
 //MQtt
 #include <PubSubClient.h>
+//sleep modes
+#include "user_interface.h"
 
 
-#define CALIBRATION_TIME   1        // in minutes
 
-// When using I2C communication, use the following program to construct an object by DFRobot_MICS_I2C
-/**
- * select i2c device address 
- * MICS_ADDRESS_0               0x75
- * MICS_ADDRESS_1               0x76
- * MICS_ADDRESS_2               0x77
- * MICS_ADDRESS_3               0x78
- */
-#define MICS_I2C_ADDRESS MICS_ADDRESS_0
-DFRobot_MICS_I2C mics(&Wire, MICS_I2C_ADDRESS);
+
+
+
 
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
-IPAddress server(192, 168, 178, 85); //mqtt server
+
+
+/*-----Change Mqtt values here-------*/
+IPAddress server(192, 168, 178, 75);  //mqtt server
+const char *user = "mqtt";            //mqtt username
+const char *pass = "test123";         //password
+/*----------------------------------*/
 
 HM330X sensor;
 uint8_t buf[30];
+
+#define MQTTTopic "homeassistant/sensor/air"
+#define MQTT_UNIQUE_IDENTIFIER WiFi.macAddress() 
+
+WiFiManager wifiManager;
+
+uint16_t pm1;
+uint16_t pm25;
+uint16_t pm10;
 
 
 const char *str[] = {"sensor num: ", "PM1.0 concentration(CF=1,Standard particulate matter,unit:ug/m3): ",
@@ -59,8 +66,17 @@ HM330XErrorCode parse_result(uint8_t *data) {
     uint16_t value = 0;
     if (NULL == data)
         return ERROR_PARAM;
-    for (int i = 1; i < 8; i++) {
+    for (int i = 2; i < 5; i++) {
         value = (uint16_t) data[i * 2] << 8 | data[i * 2 + 1];
+        if(i==2){
+           pm1 = value;
+        }
+        if(i==3){
+          pm25 = value;
+        }
+        if(i==4){
+           pm10 = value;
+        }
         print_result(str[i - 1], value);
 
     }
@@ -68,47 +84,127 @@ HM330XErrorCode parse_result(uint8_t *data) {
     return NO_ERROR;
 }
 
-HM330XErrorCode parse_result_value(uint8_t *data) {
-    if (NULL == data) {
-        return ERROR_PARAM;
-    }
-    for (int i = 0; i < 28; i++) {
-        Serial.print(data[i], HEX);
-        Serial.print("  ");
-        if ((0 == (i) % 5) || (0 == i)) {
-            Serial.println("");
-        }
-    }
-    uint8_t sum = 0;
-    for (int i = 0; i < 28; i++) {
-        sum += data[i];
-    }
-    if (sum != data[28]) {
-        Serial.println("wrong checkSum!!!!");
-    }
-    Serial.println("");
-    return NO_ERROR;
+
+/*
+  Sends the 3 sensor values as a json via mqtt
+*/
+void sendStatus(){
+  updateValues();
+  StaticJsonDocument<128> JSONencoder;
+  Serial.println("Sending Status");
+  JSONencoder["pm1"] = (int)pm1,
+  JSONencoder["pm25"] = (int)pm25,
+  JSONencoder["pm10"] = (int)pm10;
+  uint8_t JSONmessage[128];
+  size_t n = serializeJson(JSONencoder, JSONmessage);
+  client.publish("homeassistant/sensor/air/state", JSONmessage, n, true);
+        
+}
+/*
+  Message for Homeassistant autodiscovery 
+  for PM1
+*/
+void send1Config(){
+ DynamicJsonDocument JSONencoder(4096);
+  JSONencoder["name"] = "air 1",
+  JSONencoder["device_class"] = "pm1",
+  JSONencoder["unit_of_measurement"] = "µg/m³",
+  JSONencoder["dev"]["ids"] = MQTT_UNIQUE_IDENTIFIER,
+  JSONencoder["dev"]["mf"] = "Robin47113",
+  JSONencoder["dev"]["mdl"] = "1.0",
+  JSONencoder["dev"]["name"] = "air",
+  JSONencoder["state_topic"] = "homeassistant/sensor/air/state",
+  JSONencoder["value_template"] = "{{ value_json.pm1}}" ;
+
+  size_t n = measureJson(JSONencoder);
+                  if (client.beginPublish("homeassistant/sensor/air1/config", n, true) == true) {
+                   // SERIAL_DEBUG_LN("Configuration Publishing Begun")
+                    if (serializeJson(JSONencoder, client) == n){
+                     //   SERIAL_DEBUG_LN("Configuration Sent")
+                    }
+                    if (client.endPublish() == true) {
+                       // SERIAL_DEBUG_LN("Configuration Publishing Finished")
+                    }
+                } else {
+                  //  SERIAL_DEBUG_LN("Error sending Configuration")
+                }
 }
 
+/*
+  Message for Homeassistant autodiscovery 
+  for PM2.5
+*/
+void send2Config(){
+ DynamicJsonDocument JSONencoder(4096);
+  JSONencoder["name"] = "air 2.5",
+  JSONencoder["device_class"] = "pm25",
+  JSONencoder["unit_of_measurement"] = "µg/m³",
+  JSONencoder["dev"]["ids"] = MQTT_UNIQUE_IDENTIFIER,
+  JSONencoder["dev"]["mf"] = "Robin47113",
+  JSONencoder["dev"]["mdl"] = "1.0",
+  JSONencoder["dev"]["name"] = "air",
+  JSONencoder["state_topic"] = "homeassistant/sensor/air/state",
+  JSONencoder["value_template"] = "{{ value_json.pm25}}" ;
+
+  size_t n = measureJson(JSONencoder);
+                  if (client.beginPublish("homeassistant/sensor/air2/config", n, true) == true) {
+                   // SERIAL_DEBUG_LN("Configuration Publishing Begun")
+                    if (serializeJson(JSONencoder, client) == n){
+                     //   SERIAL_DEBUG_LN("Configuration Sent")
+                    }
+                    if (client.endPublish() == true) {
+                       // SERIAL_DEBUG_LN("Configuration Publishing Finished")
+                    }
+                } else {
+                  //  SERIAL_DEBUG_LN("Error sending Configuration")
+                }
+}
+
+/*
+  Message for Homeassistant autodiscovery 
+  for PM10
+*/
+void send10Config(){
+ DynamicJsonDocument JSONencoder(4096);
+  JSONencoder["name"] = "air 10",
+  JSONencoder["device_class"] = "pm10",
+  JSONencoder["unit_of_measurement"] = "µg/m³",
+  JSONencoder["dev"]["ids"] = MQTT_UNIQUE_IDENTIFIER,
+  JSONencoder["dev"]["mf"] = "Robin47113",
+  JSONencoder["dev"]["mdl"] = "1.0",
+  JSONencoder["dev"]["name"] = "air",
+  JSONencoder["state_topic"] = "homeassistant/sensor/air/state",
+  JSONencoder["value_template"] = "{{ value_json.pm10}}" ;
+
+  size_t n = measureJson(JSONencoder);
+                  if (client.beginPublish("homeassistant/sensor/air10/config", n, true) == true) {
+                   // SERIAL_DEBUG_LN("Configuration Publishing Begun")
+                    if (serializeJson(JSONencoder, client) == n){
+                     //   SERIAL_DEBUG_LN("Configuration Sent")
+                    }
+                    if (client.endPublish() == true) {
+                       // SERIAL_DEBUG_LN("Configuration Publishing Finished")
+                    }
+                } else {
+                  //  SERIAL_DEBUG_LN("Error sending Configuration")
+                }
+}
+
+/*
+  Connects to the Mqtt broker 
+  send all the configs and a status
+*/
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("AirQuality")) {
+    if (client.connect("Air",user,pass)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("outTopic","hello world");
-      sendConfig();
-      sendConfig();
-      sendConfig();
-
-      sendConfig();
-      sendConfig();
-      sendConfig();
-      sendConfig();
-      sendConfig();
-      sendConfig();
+      send1Config();
+      send2Config();
+      send10Config();
 
       sendStatus();
       // ... and resubscribe
@@ -123,96 +219,68 @@ void reconnect() {
   }
 }
 
-//µg/m³
-
-//carbon_monoxide
-//nitrogen_dioxide
-// Ammonia
-// Hydrogen
-// Ethanol
-// Methane
-
-//pm1
-//pm10
-//pm25
-
-void sendStatus(){
-
+void updateValues(){
+    if (sensor.read_sensor_value(buf, 29)) {
+    Serial.println("HM330X read result failed!!!");
+  }
+  parse_result(buf);
+  Serial.println("");
 }
 
-void sendConfig(){
-
+/*
+  Light sleep callback
+*/
+void callback() {
+  Serial1.println("Callback");
+  Serial.flush();
 }
 
-
+void sensorInit(){
+  digitalWrite(D6,LOW);
+    //HM3301 init
+  if (sensor.init()) {
+        Serial.println("HM330X init failed!!!");
+        while (1);
+  }
+}
 
 void setup() {
   Serial.begin(115200);
-  
-  WiFiManager wifiManager;
-  
+  Serial1.println("Start device in normal mode!");
+
+  pinMode(D6,OUTPUT);
+  digitalWrite(D6,HIGH);
+
+  //mqtt config
+  client.setServer(server, 1883);
+
+  //HM3301 init
+  if (sensor.init()) {
+        Serial.println("HM330X init failed!!!");
+        while (1);
+  }
+
+  //connect to WIFI
   wifiManager.autoConnect("AutoConnectAP");
   Serial.println("Wifi connected");
 
-  client.setServer(server, 1883);
-  //client.setCallback(callback);
-
-  while(!Serial);
-  while(!mics.begin()){
-    Serial.println("NO Deivces !");
-    delay(1000);
-  } Serial.println("Device connected successfully !");
-
-  /**
-   * Gets the power mode of the sensor
-   * The sensor is in sleep mode when power is on,so it needs to wake up the sensor. 
-   * The data obtained in sleep mode is wrong
-   */
-  uint8_t mode = mics.getPowerState();
-  if(mode == SLEEP_MODE){
-    mics.wakeUpMode();
-    Serial.println("wake up sensor success!");
-  }else{
-    Serial.println("The sensor is wake up mode");
-  }
-
-  /**
-   * Do not touch the sensor probe when preheating the sensor.
-   * Place the sensor in clean air.
-   * The default calibration time is 3 minutes.
-   */
-  while(!mics.warmUpTime(CALIBRATION_TIME)){
-    Serial.println("Please wait until the warm-up time is over!");
-    delay(1000);
-  }
 }
 
 
 void loop() {
+  //sensorInit();
+
+  //connect to WIFI
+  //wifiManager.autoConnect("AutoConnectAP");
+  //Serial.println("Wifi connected");
+
   if (!client.connected()) {
-   //reconnect();
+   reconnect();
+  }else{
+    sendStatus();
   }
-  //client.loop();
+  client.loop();
 
-    /**
-   *   CO       = 0x01  (Carbon Monoxide)  (1    - 1000)PPM
-   *   CH4      = 0x02  (Methane)          (1000 - 25000)PPM
-   *   C2H5OH   = 0x03  (Ethanol)          (10   - 500)PPM
-   *   H2       = 0x06  (Hydrogen)         (1    - 1000)PPM
-   *   NH3      = 0x08  (Ammonia)          (1    - 500)PPM
-   *   NO2      = 0x0A  (Nitrogen Dioxide) (0.1  - 10)PPM
-   */
-  float gasdata = mics.getGasData(CO);
-  Serial.print(gasdata,1);
-  Serial.println(" PPM");
-  //mics.sleepMode();
-
-    if (sensor.read_sensor_value(buf, 29)) {
-        Serial.println("HM330X read result failed!!!");
-    }
-    parse_result_value(buf);
-    parse_result(buf);
-    Serial.println("");
-
-    delay(1000);
+  //delay(10000);
+  //hier Light sleep
 }
